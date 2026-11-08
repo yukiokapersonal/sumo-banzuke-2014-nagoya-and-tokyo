@@ -214,11 +214,11 @@ st.markdown("""
 conn = sqlite3.connect("sumo.db")
 cur = conn.cursor()
 
-# 1. 登録されている「場所」の一覧を取得
-cur.execute("SELECT DISTINCT basho_id FROM banzuke ORDER BY basho_id DESC;")
+# 1. 登録されている「場所」の一覧を取得（★ 名古屋と秋場所のみ強制抽出）
+cur.execute("SELECT DISTINCT basho_id FROM banzuke WHERE basho_id IN ('201407', '201409') ORDER BY basho_id DESC;")
 available_bashos = [r[0] for r in cur.fetchall()]
 if not available_bashos: 
-    available_bashos = ["201407"]
+    available_bashos = ["201409", "201407"]
 
 # 2. 部屋一覧を取得
 TOSHIYORI_LIST = [
@@ -237,8 +237,7 @@ TOSHIYORI_LIST = [
 
 basho_labels = {
     "201407": "平成26年7月場所（名古屋）",
-    "201409": "平成26年9月場所（秋場所）",
-    "201411": "平成26年11月場所（九州）"
+    "201409": "平成26年9月場所（秋場所）"
 }
 
 st.markdown('<div class="search-section">', unsafe_allow_html=True)
@@ -309,7 +308,7 @@ df_table = pd.read_sql_query(query, conn, params=params)
 conn.close()
 
 # ----------------------------------------------------
-# 各階級ごとに「準優勝」を自動判定（Pandas処理）
+# 各階級ごとに「準優勝」を自動判定
 # ----------------------------------------------------
 df_table["準優勝"] = ""
 if selected_heya == "すべて":
@@ -319,13 +318,10 @@ if selected_heya == "すべて":
         
         if not champ_df.empty:
             champ_wins = champ_df["wins"].max()
-            
-            # ① 最優先: 優勝者と同点の力士（決定戦敗退など）
             same_wins_mask = div_mask & (df_table["wins"] == champ_wins) & (df_table["優勝"] != "優")
             if same_wins_mask.any():
                 df_table.loc[same_wins_mask, "準優勝"] = "準"
             else:
-                # ② 次点: 同点がいない場合、優勝者の勝ち星より1つ少ない力士すべてに付与
                 one_less_mask = div_mask & (df_table["wins"] == champ_wins - 1) & (df_table["優勝"] != "優")
                 df_table.loc[one_less_mask, "準優勝"] = "準"
 
@@ -414,7 +410,6 @@ else:
 
         shikona_html = split_shikona(row["力士名"], row["rank_division"])
         
-        # 準優勝の情報も渡す
         jun_val = row["準優勝"] if "準優勝" in row else ""
         record_and_awards_html = render_record_and_awards(row["優勝"], jun_val, row["三賞"], row["星取"], row["rank_division"])
         
